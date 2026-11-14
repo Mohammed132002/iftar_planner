@@ -3,3 +3,4 @@ __pycache__/
 .venv/
 iftar.db
 try_*.py
+iftar_report.txt
