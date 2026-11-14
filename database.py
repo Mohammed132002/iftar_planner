@@ -42,6 +42,16 @@ class DishDatabase:
         finally:
             conn.close()
 
+    def get_dish(self, dish_id):
+        # one dish as a dictionary, or None when the id is unknown
+        sql = 'SELECT id, name, category, cost FROM dishes WHERE id = ?'
+        conn = self.connect()
+        try:
+            row = conn.execute(sql, (dish_id,)).fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
     def add_dish(self, name, category, cost):
         # the placeholders (?) keep the values out of the SQL text
         sql = 'INSERT INTO dishes (name, category, cost) VALUES (?, ?, ?)'
@@ -50,5 +60,36 @@ class DishDatabase:
             with conn:
                 cursor = conn.execute(sql, (name, category, cost))
             return cursor.lastrowid
+        finally:
+            conn.close()
+
+    def update_dish(self, dish_id, name, category, cost):
+        # True when a row was changed, False when the id is unknown
+        sql = 'UPDATE dishes SET name = ?, category = ?, cost = ? WHERE id = ?'
+        conn = self.connect()
+        try:
+            with conn:
+                cursor = conn.execute(sql, (name, category, cost, dish_id))
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+    def delete_dish(self, dish_id):
+        # True when a row was deleted, False when the id is unknown
+        sql = 'DELETE FROM dishes WHERE id = ?'
+        conn = self.connect()
+        try:
+            with conn:
+                cursor = conn.execute(sql, (dish_id,))
+            return cursor.rowcount > 0
+        finally:
+            conn.close()
+
+    def total_cost(self):
+        # the sum of all costs, and 0 when the list is empty
+        sql = 'SELECT COALESCE(SUM(cost), 0) FROM dishes'
+        conn = self.connect()
+        try:
+            return conn.execute(sql).fetchone()[0]
         finally:
             conn.close()
