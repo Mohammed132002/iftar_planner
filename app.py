@@ -8,7 +8,7 @@ app = Flask(__name__)
 db = DishDatabase()
 
 # the allowed categories
-CATEGORIES = ['Soup', 'Salad', 'Main dish', 'Dessert', 'Drink']
+CATEGORIES = ['Dates', 'Soup', 'Fried Snacks', 'Main dish', 'Salad', 'Dessert', 'Drink']
 
 
 def error(message, status):
