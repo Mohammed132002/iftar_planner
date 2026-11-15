@@ -3,26 +3,30 @@ from tkinter import messagebox, ttk
 
 from client import DishClient, ServerError
 
-CATEGORIES = ['Soup', 'Salad', 'Main dish', 'Dessert', 'Drink']
+CATEGORIES = ['Dates', 'Soup', 'Fried Snacks', 'Main dish', 'Salad', 'Dessert', 'Drink']
 ALL = 'All Categories'
 
 # the colors and the font of the whole window
 FONT = 'Segoe UI'
-BG = '#F4F2EC'
+BG = '#1B2A41'
+TITLE = '#F2D58A'
+SUBTITLE = '#AEBBD0'
+STATUS_OK = '#9BE3B0'
+STATUS_ERROR = '#FF9A8F'
+FORM_BG = '#F4F2EC'
 INK = '#1F2A2E'
 GRAY = '#6B7478'
 CARD = '#FCF3CF'
 TABLE_BG = '#FFF8DC'
-HEADER = '#274C4B'
+HEADER = '#34507A'
 TEAL = '#3A7D7B'
 RED = '#D6342B'
-GREEN = '#2E7D32'
 
 # the colors of the buttons
 BTN_ADD = '#2F8F6B'
 BTN_EDIT = '#3B82A0'
 BTN_DELETE = '#C95151'
-BTN_REFRESH = '#5B6B73'
+BTN_REFRESH = '#6B7F9E'
 BTN_CLEAR = '#D9902F'
 BTN_CANCEL = '#8A9499'
 
@@ -50,36 +54,36 @@ class DishForm(tk.Toplevel):
         self.app = app
         self.dish = dish
         self.title('Edit Dish' if dish else 'Add Dish')
-        self.configure(bg=BG)
+        self.configure(bg=FORM_BG)
         self.resizable(False, False)
 
-        tk.Label(self, text='Edit Dish' if dish else 'Add Dish', bg=BG, fg=INK,
+        tk.Label(self, text='Edit Dish' if dish else 'Add Dish', bg=FORM_BG, fg=INK,
                  font=(FONT, 15, 'bold')).grid(row=0, column=0, columnspan=2,
                                                padx=24, pady=(18, 10), sticky='w')
 
         # the three fields
-        tk.Label(self, text='Name', bg=BG, fg=GRAY, font=(FONT, 9, 'bold')).grid(
+        tk.Label(self, text='Name', bg=FORM_BG, fg=GRAY, font=(FONT, 9, 'bold')).grid(
             row=1, column=0, padx=(24, 8), pady=6, sticky='e')
         self.name_box = make_entry(self, 30)
         self.name_box.grid(row=1, column=1, padx=(0, 24), pady=6, ipady=4)
 
-        tk.Label(self, text='Category', bg=BG, fg=GRAY, font=(FONT, 9, 'bold')).grid(
+        tk.Label(self, text='Category', bg=FORM_BG, fg=GRAY, font=(FONT, 9, 'bold')).grid(
             row=2, column=0, padx=(24, 8), pady=6, sticky='e')
         self.category_box = ttk.Combobox(self, values=CATEGORIES, state='readonly', width=28)
         self.category_box.grid(row=2, column=1, padx=(0, 24), pady=6, sticky='w')
 
-        tk.Label(self, text='Cost (SAR)', bg=BG, fg=GRAY, font=(FONT, 9, 'bold')).grid(
+        tk.Label(self, text='Cost (SAR)', bg=FORM_BG, fg=GRAY, font=(FONT, 9, 'bold')).grid(
             row=3, column=0, padx=(24, 8), pady=6, sticky='e')
         self.cost_box = make_entry(self, 30)
         self.cost_box.grid(row=3, column=1, padx=(0, 24), pady=6, ipady=4)
 
         # one line for the error messages of this window
-        self.error_label = tk.Label(self, text='', bg=BG, fg=RED, wraplength=320,
+        self.error_label = tk.Label(self, text='', bg=FORM_BG, fg=RED, wraplength=320,
                                     font=(FONT, 9))
         self.error_label.grid(row=4, column=0, columnspan=2, padx=24, pady=(4, 0))
 
         # the buttons
-        buttons = tk.Frame(self, bg=BG)
+        buttons = tk.Frame(self, bg=FORM_BG)
         buttons.grid(row=5, column=0, columnspan=2, pady=(8, 18))
         make_button(buttons, 'Save', BTN_ADD, self.save).grid(row=0, column=0, padx=5)
         make_button(buttons, 'Cancel', BTN_CANCEL, self.destroy).grid(row=0, column=1, padx=5)
@@ -154,10 +158,10 @@ class DishApp:
         # the title
         title = tk.Frame(root, bg=BG)
         title.pack(fill='x', padx=26, pady=(18, 0))
-        tk.Label(title, text='Iftar Menu Planner', bg=BG, fg=INK,
+        tk.Label(title, text='Iftar Menu Planner', bg=BG, fg=TITLE,
                  font=(FONT, 20, 'bold')).pack(anchor='w')
         tk.Label(title, text='Plan and manage the dishes of your iftar table', bg=BG,
-                 fg=GRAY, font=(FONT, 10)).pack(anchor='w', pady=(2, 0))
+                 fg=SUBTITLE, font=(FONT, 10)).pack(anchor='w', pady=(2, 0))
 
         # the card with the numbers
         card = tk.Frame(root, bg=CARD)
@@ -177,7 +181,7 @@ class DishApp:
         # the section title and the buttons
         bar = tk.Frame(root, bg=BG)
         bar.pack(fill='x', padx=26)
-        tk.Label(bar, text='Dish Records', bg=BG, fg=INK, font=(FONT, 14, 'bold')).pack(
+        tk.Label(bar, text='Dish Records', bg=BG, fg=TITLE, font=(FONT, 14, 'bold')).pack(
             side='left')
         buttons = tk.Frame(bar, bg=BG)
         buttons.pack(side='right')
@@ -227,10 +231,10 @@ class DishApp:
     # ----- messages -----
 
     def show_ok(self, message):
-        self.status.config(text=message, fg=GREEN)
+        self.status.config(text=message, fg=STATUS_OK)
 
     def show_error(self, message):
-        self.status.config(text=message, fg=RED)
+        self.status.config(text=message, fg=STATUS_ERROR)
 
     # ----- the table and the filters -----
 
