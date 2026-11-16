@@ -1,7 +1,15 @@
+import html
+import os
+import tempfile
 import tkinter as tk
+import webbrowser
+from datetime import datetime
+from pathlib import Path
+from threading import Thread
 from tkinter import messagebox, ttk
 
 from client import DishClient, ServerError
+from report import REPORT_FILE, write_report
 
 CATEGORIES = ['Dates', 'Soup', 'Fried Snacks', 'Main dish', 'Salad', 'Dessert', 'Drink']
 ALL = 'All Categories'
@@ -28,7 +36,96 @@ BTN_EDIT = '#3B82A0'
 BTN_DELETE = '#C95151'
 BTN_REFRESH = '#6B7F9E'
 BTN_CLEAR = '#D9902F'
+BTN_REPORT = '#3A7D7B'
+BTN_PRINT = '#7B5EA7'
 BTN_CANCEL = '#8A9499'
+
+
+# the invoice is saved in the temporary folder of the computer, not in the project
+INVOICE_FILE = os.path.join(tempfile.gettempdir(), 'iftar_invoice.html')
+
+# the page; the words in double braces are replaced by the real values
+PAGE = """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Iftar Menu Invoice</title>
+<style>
+  @page { size: A4; margin: 15mm; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1F2A2E; margin: 0; padding: 24px; }
+  .head { background: #1B2A41; color: #F2D58A; padding: 20px 24px; border-radius: 8px; }
+  .head h1 { margin: 0 0 4px 0; font-size: 26px; }
+  .head p { margin: 0; color: #AEBBD0; font-size: 13px; }
+  .info { margin: 18px 0; font-size: 14px; }
+  .info span { display: inline-block; margin-right: 40px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { background: #34507A; color: white; text-align: left; padding: 10px; }
+  td { padding: 9px 10px; border-bottom: 1px solid #E3DCC2; }
+  tr:nth-child(even) td { background: #FFF8DC; }
+  .num { text-align: right; }
+  .total { margin-top: 16px; padding: 14px 18px; background: #FCF3CF; border-radius: 8px;
+           font-size: 18px; font-weight: bold; text-align: right; }
+  .note { margin-top: 28px; font-size: 12px; color: #6B7478; text-align: center; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>Iftar Menu Invoice</h1>
+    <p>Iftar Menu Planner</p>
+  </div>
+  <div class="info">
+    <span><b>Invoice No:</b> {{NUMBER}}</span>
+    <span><b>Date:</b> {{DATE}}</span>
+    <span><b>Dishes:</b> {{COUNT}}</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>Dish</th><th>Category</th><th class="num">Cost (SAR)</th></tr>
+{{ROWS}}
+  </table>
+  <div class="total">Total estimated cost: {{TOTAL}} SAR</div>
+  <div class="note">Thank you. These costs are estimates.</div>
+  <script>window.onload = function () { window.print(); };</script>
+</body>
+</html>
+"""
+
+
+def build_invoice(dishes, now=None):
+    # returns the page of the invoice as text
+    if now is None:
+        now = datetime.now()
+
+    rows = ''
+    total = 0
+    number = 0
+    for dish in dishes:
+        number = number + 1
+        total = total + dish['cost']
+        # html.escape keeps a name such as <b> from breaking the page
+        rows = rows + '    <tr><td>%d</td><td>%s</td><td>%s</td><td class="num">%.2f</td></tr>\n' % (
+            number, html.escape(dish['name']), html.escape(dish['category']), dish['cost'])
+
+    page = PAGE
+    page = page.replace('{{NUMBER}}', now.strftime('INV-%Y%m%d-%H%M%S'))
+    page = page.replace('{{DATE}}', now.strftime('%Y-%m-%d %H:%M'))
+    page = page.replace('{{COUNT}}', str(len(dishes)))
+    page = page.replace('{{ROWS}}', rows.rstrip('\n'))
+    page = page.replace('{{TOTAL}}', '%.2f' % total)
+    return page
+
+
+def save_invoice(dishes, path=None):
+    # writes the invoice file and returns its path, OSError when it cannot be written
+    if path is None:
+        path = INVOICE_FILE
+    with open(path, 'w', encoding='utf-8') as invoice_file:
+        invoice_file.write(build_invoice(dishes))
+    return path
+
+
+def open_invoice(path):
+    # opens the invoice in the browser, whose print window opens by itself
+    return webbrowser.open(Path(path).as_uri())
 
 
 def make_button(parent, text, color, command):
@@ -188,7 +285,9 @@ class DishApp:
         for text, color, command in [('+ Add Dish', BTN_ADD, self.add_dish),
                                      ('Edit', BTN_EDIT, self.edit_dish),
                                      ('Delete', BTN_DELETE, self.delete_dish),
-                                     ('Refresh', BTN_REFRESH, self.refresh)]:
+                                     ('Refresh', BTN_REFRESH, self.refresh),
+                                     ('Generate Report', BTN_REPORT, self.generate_report),
+                                     ('Print Invoice', BTN_PRINT, self.print_invoice)]:
             make_button(buttons, text, color, command).pack(side='left', padx=(8, 0))
 
         # the filters
@@ -206,12 +305,17 @@ class DishApp:
         self.category_filter.pack(side='left', padx=10)
         make_button(filters, 'Clear Filters', BTN_CLEAR, self.clear_filters).pack(side='right')
 
+        # one line for the success and error messages, packed before the table
+        # so the table takes only the space that is left
+        self.status = tk.Label(root, text='', bg=BG, wraplength=840, font=(FONT, 10))
+        self.status.pack(side='bottom', fill='x', padx=26, pady=(8, 12))
+
         # the table of the dishes, with a scroll bar
         holder = tk.Frame(root, bg=BG)
         holder.pack(fill='both', expand=True, padx=26)
         columns = ('id', 'name', 'category', 'cost')
         self.table = ttk.Treeview(holder, columns=columns, show='headings',
-                                  selectmode='browse')
+                                  selectmode='browse', height=8)
         for column, name, width in [('id', 'ID', 60), ('name', 'Name', 330),
                                     ('category', 'Category', 200), ('cost', 'Cost (SAR)', 120)]:
             self.table.heading(column, text=name)
@@ -221,9 +325,6 @@ class DishApp:
         self.table.pack(side='left', fill='both', expand=True)
         scroll.pack(side='right', fill='y')
 
-        # one line for the success and error messages
-        self.status = tk.Label(root, text='', bg=BG, wraplength=840, font=(FONT, 10))
-        self.status.pack(fill='x', padx=26, pady=(8, 12))
 
         # the window connects to Flask by itself when it opens
         self.refresh()
@@ -317,6 +418,45 @@ class DishApp:
             return
         if self.refresh():
             self.show_ok(result['message'])
+
+    def generate_report(self):
+        # reload first, so the report shows what is really saved
+        if not self.refresh():
+            return
+        if len(self.dishes) == 0:
+            self.show_error('The list is empty. Add dishes before making the report.')
+            return
+
+        # one thread writes the file, join() waits until it finishes
+        outcome = {'saved': False, 'error': ''}
+        worker = Thread(target=write_report, args=(REPORT_FILE, self.dishes, outcome))
+        worker.start()
+        worker.join()
+
+        if outcome['saved']:
+            self.show_ok('Report saved: ' + REPORT_FILE)
+        else:
+            self.show_error('Report not saved: ' + outcome['error'])
+
+    def print_invoice(self):
+        # reload first, so the invoice shows what is really saved
+        if not self.refresh():
+            return
+        if len(self.dishes) == 0:
+            self.show_error('The list is empty. Add dishes before printing.')
+            return
+
+        # write the invoice file, then open it in the browser
+        try:
+            path = save_invoice(self.dishes)
+        except OSError as error:
+            self.show_error('Could not save the invoice: ' + str(error))
+            return
+        if open_invoice(path):
+            self.show_ok('The invoice is open. Choose your printer in the print window.')
+        else:
+            self.show_error('Could not open the browser. The invoice is saved at ' + path)
+
 
 
 if __name__ == '__main__':
